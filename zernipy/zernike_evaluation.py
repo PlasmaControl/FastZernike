@@ -1,32 +1,22 @@
 import functools
 from zernipy.backend import *
 
-@jit
-def fourier(theta, m, NFP=1, dt=0):
-    """Fourier series.
 
-    Parameters
-    ----------
-    theta : ndarray, shape(N,)
-        poloidal/toroidal coordinates to evaluate basis
-    m : ndarray of int, shape(K,)
-        poloidal/toroidal mode number(s)
-    NFP : int
-        number of field periods (Default = 1)
-    dt : int
-        order of derivative (Default = 0)
 
-    Returns
-    -------
-    y : ndarray, shape(N,K)
-        basis function(s) evaluated at specified points
+def jacobi_poly_single(x, n, alpha, beta=0, P_n1=0, P_n2=0):
+    """Evaluate Jacobi for single alpha and n pair."""
+    c = 2 * n + alpha + beta
+    a1 = 2 * n * (c - n) * (c - 2)
+    a2 = (c - 1) * (c * (c - 2) * x + (alpha - beta) * (alpha + beta))
+    a3 = 2 * (n + alpha - 1) * (n + beta - 1) * c
 
-    """
-    theta, m, NFP, dt = map(jnp.asarray, (theta, m, NFP, dt))
-    m_pos = (m >= 0).astype(int)
-    m_abs = jnp.abs(m) * NFP
-    shift = m_pos * jnp.pi / 2 + dt * jnp.pi / 2
-    return m_abs**dt * jnp.sin(m_abs * theta + shift)
+    a1 = jnp.where(a1 == 0, 1e-6, a1)
+    P_n = (a2 * P_n1 - a3 * P_n2) / a1
+    # Checks for special cases
+    P_n = jnp.where(n < 0, 0, P_n)
+    P_n = jnp.where(n == 0, 1, P_n)
+    P_n = jnp.where(n == 1, (alpha + 1) + (alpha + beta + 2) * (x - 1) / 2, P_n)
+    return P_n
 
 
 @functools.partial(jit, static_argnums=3)
@@ -384,22 +374,6 @@ def zernike_radial_separate(r, l, m, dr=0):  # noqa: C901
     return out
 
 
-def jacobi_poly_single(x, n, alpha, beta=0, P_n1=0, P_n2=0):
-    """Evaluate Jacobi for single alpha and n pair."""
-    c = 2 * n + alpha + beta
-    a1 = 2 * n * (c - n) * (c - 2)
-    a2 = (c - 1) * (c * (c - 2) * x + (alpha - beta) * (alpha + beta))
-    a3 = 2 * (n + alpha - 1) * (n + beta - 1) * c
-
-    a1 = jnp.where(a1 == 0, 1e-6, a1)
-    P_n = (a2 * P_n1 - a3 * P_n2) / a1
-    # Checks for special cases
-    P_n = jnp.where(n < 0, 0, P_n)
-    P_n = jnp.where(n == 0, 1, P_n)
-    P_n = jnp.where(n == 1, (alpha + 1) + (alpha + beta + 2) * (x - 1) / 2, P_n)
-    return P_n
-
-
 @custom_jvp
 @jit
 def zernike_radial_rory(r, l, m, dr=0):
@@ -450,167 +424,7 @@ def zernike_radial_rory(r, l, m, dr=0):
         basis function(s) evaluated at specified points
 
     """
-    return _zernike_radial_vectorized(r, l, m, dr)
-
-
-@functools.partial(jnp.vectorize, excluded=(1, 2, 3), signature="()->(k)")
-def _zernike_radial_vectorized(r, l, m, dr):
-
-    if dr > 4:
-        raise NotImplementedError(
-            "Analytic radial derivatives of Zernike polynomials for order>4 "
-            + "have not been implemented."
-        )
-
-    def update(i, args):
-        alpha, N, result, out = args
-        idx = jnp.where(jnp.logical_and(m[i] == alpha, n[i] == N), i, -1)
-
-        def falseFun(args):
-            _, _, out = args
-            return out
-
-        def trueFun(args):
-            idx, result, out = args
-            out = out.at[idx].set(result)
-            return out
-
-        out = cond(idx >= 0, trueFun, falseFun, (idx, result, out))
-        return (alpha, N, result, out)
-
-    def body_inner(N, args):
-        alpha, out, P_past = args
-        P_n2 = P_past[0]
-        P_n1 = P_past[1]
-        P_n = jnp.zeros(dr + 1)
-
-        def find_inter_jacobi(dx, args):
-            N, alpha, P_n1, P_n2, P_n = args
-            P_n = P_n.at[dx].set(
-                jacobi_poly_single(r_jacobi, N - dx, alpha + dx, dx, P_n1[dx], P_n2[dx])
-            )
-            return (N, alpha, P_n1, P_n2, P_n)
-
-        # Calculate Jacobi polynomial and derivatives for (m,n)
-        _, _, _, _, P_n = fori_loop(
-            0, dr + 1, find_inter_jacobi, (N, alpha, P_n1, P_n2, P_n)
-        )
-
-        coef = jnp.exp(
-            gammaln(alpha + N + 1 + dxs) - dxs * jnp.log(2) - gammaln(alpha + N + 1)
-        )
-        # TODO: A version without if statements are possible?
-        if dr == 0:
-            result = (-1) ** N * r**alpha * P_n[0]
-        elif dr == 1:
-            result = (-1) ** N * (
-                alpha * r ** jnp.maximum(alpha - 1, 0) * P_n[0]
-                - coef[1] * 4 * r ** (alpha + 1) * P_n[1]
-            )
-        elif dr == 2:
-            result = (-1) ** N * (
-                (alpha - 1) * alpha * r ** jnp.maximum(alpha - 2, 0) * P_n[0]
-                - coef[1] * 4 * (2 * alpha + 1) * r**alpha * P_n[1]
-                + coef[2] * 16 * r ** (alpha + 2) * P_n[2]
-            )
-        elif dr == 3:
-            result = (-1) ** N * (
-                (alpha - 2)
-                * (alpha - 1)
-                * alpha
-                * r ** jnp.maximum(alpha - 3, 0)
-                * P_n[0]
-                - coef[1] * 12 * alpha**2 * r ** jnp.maximum(alpha - 1, 0) * P_n[1]
-                + coef[2] * 48 * (alpha + 1) * r ** (alpha + 1) * P_n[2]
-                - coef[3] * 64 * r ** (alpha + 3) * P_n[3]
-            )
-        elif dr == 4:
-            result = (-1) ** N * (
-                (alpha - 3)
-                * (alpha - 2)
-                * (alpha - 1)
-                * alpha
-                * r ** jnp.maximum(alpha - 4, 0)
-                * P_n[0]
-                - coef[1]
-                * 8
-                * alpha
-                * (2 * alpha**2 - 3 * alpha + 1)
-                * r ** jnp.maximum(alpha - 2, 0)
-                * P_n[1]
-                + coef[2] * 48 * (2 * alpha**2 + 2 * alpha + 1) * r**alpha * P_n[2]
-                - coef[3] * 128 * (2 * alpha + 3) * r ** (alpha + 2) * P_n[3]
-                + coef[4] * 256 * r ** (alpha + 4) * P_n[4]
-            )
-        _, _, _, out = fori_loop(0, m.size, update, (alpha, N, result, out))
-
-        # Shift past values if needed
-        mask = N >= 2 + dxs
-        P_n2 = jnp.where(mask, P_n1, P_n2)
-        P_n1 = jnp.where(mask, P_n, P_n1)
-        P_past = P_past.at[0, :].set(P_n2)
-        P_past = P_past.at[1, :].set(P_n1)
-
-        return (alpha, out, P_past)
-
-    def body(alpha, out):
-        # find l values with m values equal to alpha
-        l_alpha = jnp.where(m == alpha, l, 0)
-        # find the maximum among them
-        L_max = jnp.max(l_alpha)
-        # Maximum possible value for n for loop bound
-        N_max = (L_max - alpha) // 2
-
-        def find_init_jacobi(dx, args):
-            alpha, P_past = args
-            P_past = P_past.at[0, dx].set(
-                jacobi_poly_single(r_jacobi, 0, alpha + dx, beta=dx)
-            )
-            P_past = P_past.at[1, dx].set(
-                jacobi_poly_single(r_jacobi, 1, alpha + dx, beta=dx)
-            )
-            return (alpha, P_past)
-
-        # First 2 Jacobi Polynomials (they don't need recursion)
-        # P_past stores last 2 Jacobi polynomials (and required derivatives)
-        # evaluated at given r points
-        P_past = jnp.zeros((2, dr + 1))
-        _, P_past = fori_loop(0, dr + 1, find_init_jacobi, (alpha, P_past))
-
-        # Loop over every n value
-        _, out, _ = fori_loop(
-            0, (N_max + 1).astype(int), body_inner, (alpha, out, P_past)
-        )
-        return out
-
-    m = jnp.atleast_1d(m)
-    l = jnp.atleast_1d(l)
-    dr = int(dr)
-
-    out = jnp.zeros(m.size)
-    r_jacobi = 1 - 2 * r**2
-    m = jnp.abs(m)
-    n = ((l - m) // 2).astype(int)
-    dxs = jnp.arange(0, dr + 1)
-
-    M_max = jnp.max(m)
-    # Loop over every different m value. There is another nested
-    # loop which will execute necessary n values.
-    out = fori_loop(0, (M_max + 1).astype(int), body, (out))
-    return out
-
-
-@zernike_radial_rory.defjvp
-def _zernike_radial_jvp(x, xdot):
-    (r, l, m, dr) = x
-    (rdot, ldot, mdot, drdot) = xdot
-    f = zernike_radial_rory(r, l, m, dr)
-    df = zernike_radial_rory(r, l, m, dr + 1)
-    # in theory l, m, dr aren't differentiable (they're integers)
-    # but marking them as non-diff argnums seems to cause escaped tracer values.
-    # probably a more elegant fix, but just setting those derivatives to zero seems
-    # to work fine.
-    return f, (df.T * rdot).T + 0 * ldot + 0 * mdot + 0 * drdot
+    return _zernike_radial_vectorized_rory(r, l, m, dr)
 
 
 @functools.partial(jit, static_argnums=3)
@@ -808,7 +622,7 @@ def zernike_radial(r, l, m, dr=0):
 
 
 @functools.partial(jit, static_argnums=3)
-def zernike_radial_old(r, l, m, dr=0):
+def zernike_radial_old_desc(r, l, m, dr=0):
     """Radial part of zernike polynomials.
 
     Evaluates basis functions using JAX and a stable
@@ -888,122 +702,6 @@ def zernike_radial_old(r, l, m, dr=0):
 
 @custom_jvp
 @jit
-@jnp.vectorize
-def _jacobi(n, alpha, beta, x, dx=0):
-    """Jacobi polynomial evaluation.
-
-    Implementation is only correct for non-negative integer coefficients,
-    returns 0 otherwise.
-
-    Parameters
-    ----------
-    n : int, array_like
-        Degree of the polynomial.
-    alpha : int, array_like
-        Parameter
-    beta : int, array_like
-        Parameter
-    x : float, array_like
-        Points at which to evaluate the polynomial
-
-    Returns
-    -------
-    P : ndarray
-        Values of the Jacobi polynomial
-    """
-    # adapted from scipy:
-    # https://github.com/scipy/scipy/blob/701ffcc8a6f04509d115aac5e5681c538b5265a2/
-    # scipy/special/orthogonal_eval.pxd#L144
-
-    def _jacobi_body_fun(kk, d_p_a_b_x):
-        d, p, alpha, beta, x = d_p_a_b_x
-        k = kk + 1.0
-        t = 2 * k + alpha + beta
-        d = (
-            (t * (t + 1) * (t + 2)) * (x - 1) * p + 2 * k * (k + beta) * (t + 2) * d
-        ) / (2 * (k + alpha + 1) * (k + alpha + beta + 1) * t)
-        p = d + p
-        return (d, p, alpha, beta, x)
-
-    n, alpha, beta, x = map(jnp.asarray, (n, alpha, beta, x))
-
-    # coefficient for derivative
-    c = (
-        gammaln(alpha + beta + n + 1 + dx)
-        - dx * jnp.log(2)
-        - gammaln(alpha + beta + n + 1)
-    )
-    c = jnp.exp(c)
-    # taking derivative is same as coeff*jacobi but for shifted n,a,b
-    n -= dx
-    alpha += dx
-    beta += dx
-
-    d = (alpha + beta + 2) * (x - 1) / (2 * (alpha + 1))
-    p = d + 1
-    d, p, alpha, beta, x = fori_loop(
-        0, jnp.maximum(n - 1, 0).astype(int), _jacobi_body_fun, (d, p, alpha, beta, x)
-    )
-    out = _binom(n + alpha, n) * p
-    # should be complex for n<0, but it gets replaced elsewhere so just return 0 here
-    out = jnp.where(n < 0, 0, out)
-    # other edge cases
-    out = jnp.where(n == 0, 1.0, out)
-    out = jnp.where(n == 1, 0.5 * (2 * (alpha + 1) + (alpha + beta + 2) * (x - 1)), out)
-    return c * out
-
-
-@_jacobi.defjvp
-def _jacobi_jvp(x, xdot):
-    (n, alpha, beta, x, dx) = x
-    (ndot, alphadot, betadot, xdot, dxdot) = xdot
-    f = _jacobi(n, alpha, beta, x, dx)
-    df = _jacobi(n, alpha, beta, x, dx + 1)
-    # in theory n, alpha, beta, dx aren't differentiable (they're integers)
-    # but marking them as non-diff argnums seems to cause escaped tracer values.
-    # probably a more elegant fix, but just setting those derivatives to zero seems
-    # to work fine.
-    return f, df * xdot + 0 * ndot + 0 * alphadot + 0 * betadot + 0 * dxdot
-
-
-@jit
-@jnp.vectorize
-def _binom(n, k):
-    """Binomial coefficient.
-
-    Implementation is only correct for positive integer n,k and n>=k
-
-    Parameters
-    ----------
-    n : int, array-like
-        number of things to choose from
-    k : int, array-like
-        number of things chosen
-
-    Returns
-    -------
-    val : int, float, array-like
-        number of possible combinations
-    """
-    # adapted from scipy:
-    # https://github.com/scipy/scipy/blob/701ffcc8a6f04509d115aac5e5681c538b5265a2/
-    # scipy/special/orthogonal_eval.pxd#L68
-
-    n, k = map(jnp.asarray, (n, k))
-
-    def _binom_body_fun(i, b_n):
-        b, n = b_n
-        num = n + 1 - i
-        den = i
-        return (b * num / den, n)
-
-    kx = k.astype(int)
-    b, n = fori_loop(1, 1 + kx, _binom_body_fun, (1.0, n))
-    return b
-
-
-@custom_jvp
-@jit
 def zernike_radial_newest(r, l, m, dr=0):
     """Radial part of zernike polynomials.
 
@@ -1070,19 +768,6 @@ def zernike_radial_newest(r, l, m, dr=0):
 
     # Switch doesn't work. Under JIT, only viable option seems this conditional
     return cond(dr < 2, ZeroOne, Rest, (r, l, m, dr))
-
-
-@zernike_radial_newest.defjvp
-def _zernike_radial_jvp(x, xdot):
-    (r, l, m, dr) = x
-    (rdot, ldot, mdot, drdot) = xdot
-    f = zernike_radial_newest(r, l, m, dr)
-    df = zernike_radial_newest(r, l, m, dr + 1)
-    # in theory l, m, dr aren't differentiable (they're integers)
-    # but marking them as non-diff argnums seems to cause escaped tracer values.
-    # probably a more elegant fix, but just setting those derivatives to zero seems
-    # to work fine.
-    return f, (df.T * rdot).T + 0 * ldot + 0 * mdot + 0 * drdot
 
 
 def find_intermadiate_jacobi(dx, args):
@@ -1574,3 +1259,335 @@ def _zernike_radial_vectorized_d4(r, l, m, dr):
     # loop which will execute necessary n values.
     out = fori_loop(0, (M_max + 1).astype(int), body, (out))
     return out
+
+
+@functools.partial(jnp.vectorize, excluded=(1, 2, 3), signature="()->(k)")
+def _zernike_radial_vectorized_rory(r, l, m, dr):
+    """Calculation of Radial part of Zernike polynomials."""
+
+    def update(i, args):
+        alpha, N, result, out = args
+        idx = jnp.where(jnp.logical_and(m[i] == alpha, n[i] == N), i, -1)
+
+        def falseFun(args):
+            _, _, out = args
+            return out
+
+        def trueFun(args):
+            idx, result, out = args
+            out = out.at[idx].set(result)
+            return out
+
+        out = cond(idx >= 0, trueFun, falseFun, (idx, result, out))
+        return (alpha, N, result, out)
+
+    def body_inner(N, args):
+        alpha, out, P_past = args
+        P_n2 = P_past[0]  # Jacobi at N-2
+        P_n1 = P_past[1]  # Jacobi at N-1
+        P_n = jnp.zeros(MAXDR + 1)  # Jacobi at N
+
+        def find_inter_jacobi(dx, args):
+            N, alpha, P_n1, P_n2, P_n = args
+            P_n = P_n.at[dx].set(
+                jacobi_poly_single(r_jacobi, N - dx, alpha + dx, dx, P_n1[dx], P_n2[dx])
+            )
+            return (N, alpha, P_n1, P_n2, P_n)
+
+        # Calculate Jacobi polynomial and derivatives for (alpha,N)
+        _, _, _, _, P_n = fori_loop(
+            0, MAXDR + 1, find_inter_jacobi, (N, alpha, P_n1, P_n2, P_n)
+        )
+
+        # Calculate coefficients for derivatives. coef[0] will never be used. Jax
+        # doesn't have Gamma function directly, that's why we calculate Logarithm of
+        # Gamma function and then exponentiate it.
+        coef = jnp.exp(
+            gammaln(alpha + N + 1 + dxs) - dxs * jnp.log(2) - gammaln(alpha + N + 1)
+        )
+
+        # Since we cannot make dr static, we cannot use if statement. Instead define
+        # functions and execute only the function at dr th index
+
+        # 0th Derivative of Zernike Radial
+        branch0 = lambda x: (-1) ** N * x**alpha * P_n[0]
+        # 1th Derivative of Zernike Radial
+        branch1 = lambda x: (-1) ** N * (
+            alpha * x ** jnp.maximum(alpha - 1, 0) * P_n[0]
+            - coef[1] * 4 * x ** (alpha + 1) * P_n[1]
+        )
+        # 2nd Derivative of Zernike Radial
+        branch2 = lambda x: (-1) ** N * (
+            (alpha - 1) * alpha * x ** jnp.maximum(alpha - 2, 0) * P_n[0]
+            - coef[1] * 4 * (2 * alpha + 1) * x**alpha * P_n[1]
+            + coef[2] * 16 * x ** (alpha + 2) * P_n[2]
+        )
+        # 3rd Derivative of Zernike Radial
+        branch3 = lambda x: (-1) ** N * (
+            (alpha - 2) * (alpha - 1) * alpha * x ** jnp.maximum(alpha - 3, 0) * P_n[0]
+            - coef[1] * 12 * alpha**2 * x ** jnp.maximum(alpha - 1, 0) * P_n[1]
+            + coef[2] * 48 * (alpha + 1) * x ** (alpha + 1) * P_n[2]
+            - coef[3] * 64 * x ** (alpha + 3) * P_n[3]
+        )
+        # 4th Derivative of Zernike Radial
+        branch4 = lambda x: (-1) ** N * (
+            (alpha - 3)
+            * (alpha - 2)
+            * (alpha - 1)
+            * alpha
+            * x ** jnp.maximum(alpha - 4, 0)
+            * P_n[0]
+            - coef[1]
+            * 8
+            * alpha
+            * (2 * alpha**2 - 3 * alpha + 1)
+            * x ** jnp.maximum(alpha - 2, 0)
+            * P_n[1]
+            + coef[2] * 48 * (2 * alpha**2 + 2 * alpha + 1) * x**alpha * P_n[2]
+            - coef[3] * 128 * (2 * alpha + 3) * x ** (alpha + 2) * P_n[3]
+            + coef[4] * 256 * x ** (alpha + 4) * P_n[4]
+        )
+        # if dr is greater than 4, this will be executed
+        branch5 = lambda x: jnp.nan
+        branches = [branch0, branch1, branch2, branch3, branch4, branch5]
+        # Only calculate the function at dr th index with input r
+        result = switch(dr, branches, r)
+        # Check if the calculated values is in the given modes
+        _, _, _, out = fori_loop(0, m.size, update, (alpha, N, result, out))
+
+        # Shift past values if needed
+        # For derivative order dx, if N is smaller than 2+dx, then only the initial
+        # value calculated by find_init_jacobi function will be used. So, if you update
+        # P_n's, preceeding values will be wrong.
+        mask = N >= 2 + dxs
+        P_n2 = jnp.where(mask, P_n1, P_n2)
+        P_n1 = jnp.where(mask, P_n, P_n1)
+        # Form updated P_past matrix
+        P_past = P_past.at[0, :].set(P_n2)
+        P_past = P_past.at[1, :].set(P_n1)
+
+        return (alpha, out, P_past)
+
+    def body(alpha, out):
+        # find l values with m values equal to alpha
+        l_alpha = jnp.where(m == alpha, l, 0)
+        # find the maximum among them
+        L_max = jnp.max(l_alpha)
+        # Maximum possible value for n for loop bound
+        N_max = (L_max - alpha) // 2
+
+        # Find initial values of Jacobi Polynomial and derivatives
+        def find_init_jacobi(dx, args):
+            alpha, P_past = args
+            # Jacobi for n=0
+            P_past = P_past.at[0, dx].set(
+                jacobi_poly_single(r_jacobi, 0, alpha + dx, beta=dx)
+            )
+            # Jacobi for n=1
+            P_past = P_past.at[1, dx].set(
+                jacobi_poly_single(r_jacobi, 1, alpha + dx, beta=dx)
+            )
+            return (alpha, P_past)
+
+        # First 2 Jacobi Polynomials (they don't need recursion)
+        # P_past stores last 2 Jacobi polynomials (and required derivatives)
+        # evaluated at given r points
+        P_past = jnp.zeros((2, MAXDR + 1))
+        _, P_past = fori_loop(0, MAXDR + 1, find_init_jacobi, (alpha, P_past))
+
+        # Loop over every n value
+        _, out, _ = fori_loop(
+            0, (N_max + 1).astype(int), body_inner, (alpha, out, P_past)
+        )
+        return out
+
+    # Make inputs 1D arrays in case they aren't
+    m = jnp.atleast_1d(m)
+    l = jnp.atleast_1d(l)
+    dr = jnp.asarray(dr).astype(int)
+
+    # From the vectorization, the overall output will be (r.size, m.size)
+    out = jnp.zeros(m.size)
+    r_jacobi = 1 - 2 * r**2
+    m = jnp.abs(m)
+    n = ((l - m) // 2).astype(int)
+
+    # This part can be better implemented. Try to make dr as static argument
+    # jnp.vectorize doesn't allow it to be static
+    MAXDR = 4
+    dxs = jnp.arange(0, MAXDR + 1)
+
+    M_max = jnp.max(m)
+    # Loop over every different m value. There is another nested
+    # loop which will execute necessary n values.
+    out = fori_loop(0, (M_max + 1).astype(int), body, (out))
+    return out
+
+@jit
+def fourier(theta, m, NFP=1, dt=0):
+    """Fourier series.
+
+    Parameters
+    ----------
+    theta : ndarray, shape(N,)
+        poloidal/toroidal coordinates to evaluate basis
+    m : ndarray of int, shape(K,)
+        poloidal/toroidal mode number(s)
+    NFP : int
+        number of field periods (Default = 1)
+    dt : int
+        order of derivative (Default = 0)
+
+    Returns
+    -------
+    y : ndarray, shape(N,K)
+        basis function(s) evaluated at specified points
+
+    """
+    theta, m, NFP, dt = map(jnp.asarray, (theta, m, NFP, dt))
+    m_pos = (m >= 0).astype(int)
+    m_abs = jnp.abs(m) * NFP
+    shift = m_pos * jnp.pi / 2 + dt * jnp.pi / 2
+    return m_abs**dt * jnp.sin(m_abs * theta + shift)
+
+
+@custom_jvp
+@jit
+@jnp.vectorize
+def _jacobi(n, alpha, beta, x, dx=0):
+    """Jacobi polynomial evaluation.
+
+    Implementation is only correct for non-negative integer coefficients,
+    returns 0 otherwise.
+
+    Parameters
+    ----------
+    n : int, array_like
+        Degree of the polynomial.
+    alpha : int, array_like
+        Parameter
+    beta : int, array_like
+        Parameter
+    x : float, array_like
+        Points at which to evaluate the polynomial
+
+    Returns
+    -------
+    P : ndarray
+        Values of the Jacobi polynomial
+    """
+    # adapted from scipy:
+    # https://github.com/scipy/scipy/blob/701ffcc8a6f04509d115aac5e5681c538b5265a2/
+    # scipy/special/orthogonal_eval.pxd#L144
+
+    def _jacobi_body_fun(kk, d_p_a_b_x):
+        d, p, alpha, beta, x = d_p_a_b_x
+        k = kk + 1.0
+        t = 2 * k + alpha + beta
+        d = (
+            (t * (t + 1) * (t + 2)) * (x - 1) * p + 2 * k * (k + beta) * (t + 2) * d
+        ) / (2 * (k + alpha + 1) * (k + alpha + beta + 1) * t)
+        p = d + p
+        return (d, p, alpha, beta, x)
+
+    n, alpha, beta, x = map(jnp.asarray, (n, alpha, beta, x))
+
+    # coefficient for derivative
+    c = (
+        gammaln(alpha + beta + n + 1 + dx)
+        - dx * jnp.log(2)
+        - gammaln(alpha + beta + n + 1)
+    )
+    c = jnp.exp(c)
+    # taking derivative is same as coeff*jacobi but for shifted n,a,b
+    n -= dx
+    alpha += dx
+    beta += dx
+
+    d = (alpha + beta + 2) * (x - 1) / (2 * (alpha + 1))
+    p = d + 1
+    d, p, alpha, beta, x = fori_loop(
+        0, jnp.maximum(n - 1, 0).astype(int), _jacobi_body_fun, (d, p, alpha, beta, x)
+    )
+    out = _binom(n + alpha, n) * p
+    # should be complex for n<0, but it gets replaced elsewhere so just return 0 here
+    out = jnp.where(n < 0, 0, out)
+    # other edge cases
+    out = jnp.where(n == 0, 1.0, out)
+    out = jnp.where(n == 1, 0.5 * (2 * (alpha + 1) + (alpha + beta + 2) * (x - 1)), out)
+    return c * out
+
+
+@jit
+@jnp.vectorize
+def _binom(n, k):
+    """Binomial coefficient.
+
+    Implementation is only correct for positive integer n,k and n>=k
+
+    Parameters
+    ----------
+    n : int, array-like
+        number of things to choose from
+    k : int, array-like
+        number of things chosen
+
+    Returns
+    -------
+    val : int, float, array-like
+        number of possible combinations
+    """
+    # adapted from scipy:
+    # https://github.com/scipy/scipy/blob/701ffcc8a6f04509d115aac5e5681c538b5265a2/
+    # scipy/special/orthogonal_eval.pxd#L68
+
+    n, k = map(jnp.asarray, (n, k))
+
+    def _binom_body_fun(i, b_n):
+        b, n = b_n
+        num = n + 1 - i
+        den = i
+        return (b * num / den, n)
+
+    kx = k.astype(int)
+    b, n = fori_loop(1, 1 + kx, _binom_body_fun, (1.0, n))
+    return b
+
+
+@zernike_radial_rory.defjvp
+def _zernike_radial_rory_jvp(x, xdot):
+    (r, l, m, dr) = x
+    (rdot, ldot, mdot, drdot) = xdot
+    f = zernike_radial_rory(r, l, m, dr)
+    df = zernike_radial_rory(r, l, m, dr + 1)
+    # in theory l, m, dr aren't differentiable (they're integers)
+    # but marking them as non-diff argnums seems to cause escaped tracer values.
+    # probably a more elegant fix, but just setting those derivatives to zero seems
+    # to work fine.
+    return f, (df.T * rdot).T + 0 * ldot + 0 * mdot + 0 * drdot
+
+
+@zernike_radial_newest.defjvp
+def _zernike_radial_jvp(x, xdot):
+    (r, l, m, dr) = x
+    (rdot, ldot, mdot, drdot) = xdot
+    f = zernike_radial_newest(r, l, m, dr)
+    df = zernike_radial_newest(r, l, m, dr + 1)
+    # in theory l, m, dr aren't differentiable (they're integers)
+    # but marking them as non-diff argnums seems to cause escaped tracer values.
+    # probably a more elegant fix, but just setting those derivatives to zero seems
+    # to work fine.
+    return f, (df.T * rdot).T + 0 * ldot + 0 * mdot + 0 * drdot
+
+
+@_jacobi.defjvp
+def _jacobi_jvp(x, xdot):
+    (n, alpha, beta, x, dx) = x
+    (ndot, alphadot, betadot, xdot, dxdot) = xdot
+    f = _jacobi(n, alpha, beta, x, dx)
+    df = _jacobi(n, alpha, beta, x, dx + 1)
+    # in theory n, alpha, beta, dx aren't differentiable (they're integers)
+    # but marking them as non-diff argnums seems to cause escaped tracer values.
+    # probably a more elegant fix, but just setting those derivatives to zero seems
+    # to work fine.
+    return f, df * xdot + 0 * ndot + 0 * alphadot + 0 * betadot + 0 * dxdot
