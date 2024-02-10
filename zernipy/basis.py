@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
-from backend import *
-from zernike_evaluation import zernike_radial, fourier
+from zernipy.backend import *
+from zernipy.zernike_evaluation import zernike_radial, fourier
 
 def flatten_list(x, flatten_tuple=False):
     """Flatten a nested list.

@@ -1,7 +1,7 @@
 import matplotlib
 import matplotlib.pyplot as plt
-from backend import np
-from grid import LinearGrid
+from zernipy.backend import np
+from zernipy.grid import LinearGrid
 
 
 def _set_tight_layout(fig):

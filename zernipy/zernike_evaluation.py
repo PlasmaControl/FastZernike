@@ -1,5 +1,5 @@
 import functools
-from backend import *
+from zernipy.backend import *
 
 @jit
 def fourier(theta, m, NFP=1, dt=0):
