@@ -1,10 +1,6 @@
 from abc import ABC, abstractmethod
 
-import numpy as np
-from jax import jit
-import jax.numpy as jnp
-from jax.lax import fori_loop
-
+from backend import *
 from zernike_evaluation import zernike_radial, fourier
 
 def flatten_list(x, flatten_tuple=False):
