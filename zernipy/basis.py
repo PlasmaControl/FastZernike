@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
 from zernipy.backend import *
-from zernipy.zernike_evaluation import zernike_radial, fourier
+from zernipy.zernike import zernike_radial, fourier
 
 def flatten_list(x, flatten_tuple=False):
     """Flatten a nested list.
@@ -480,7 +480,6 @@ class ZernikePolynomial(_Basis):
                 self.L, self.M, spectral_indexing=self.spectral_indexing
             )
             self._set_up()
-
 
 
 class FourierZernikeBasis(_Basis):
