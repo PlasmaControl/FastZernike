@@ -770,6 +770,53 @@ def zernike_radial_newest(r, l, m, dr=0):
     return cond(dr < 2, ZeroOne, Rest, (r, l, m, dr))
 
 
+@custom_jvp
+@jit
+def zernike_radial_switch(r, l, m, dr=0):
+    """Radial part of zernike polynomials.
+
+    Calculates Radial part of Zernike Polynomials using Jacobi recursion relation
+    by getting rid of the redundant calculations for appropriate modes.
+    https://en.wikipedia.org/wiki/Jacobi_polynomials#Recurrence_relations
+
+    For the derivatives, the following formula is used with above recursion relation,
+    https://en.wikipedia.org/wiki/Jacobi_polynomials#Derivatives
+
+    Used formulas are also in the zerike_eval.ipynb notebook in docs.
+
+    This function can be made faster. However, JAX reverse mode AD causes problems.
+    In future, we may use vmap() instead of jnp.vectorize() to be able to set dr as
+    static argument, and not calculate every derivative even thoguh not asked.
+
+    Parameters
+    ----------
+    r : ndarray, shape(N,) or scalar
+        radial coordinates to evaluate basis
+    l : ndarray of int, shape(K,) or integer
+        radial mode number(s)
+    m : ndarray of int, shape(K,) or integer
+        azimuthal mode number(s)
+    dr : int
+        order of derivative (Default = 0)
+
+    Returns
+    -------
+    out : ndarray, shape(N,K)
+        basis function(s) evaluated at specified points
+
+    """
+    dr = jnp.asarray(dr).astype(int)
+
+    branches = [
+        _zernike_radial_vectorized,
+        _zernike_radial_vectorized_d1,
+        _zernike_radial_vectorized_d2,
+        _zernike_radial_vectorized_d3,
+        _zernike_radial_vectorized_d4,
+    ]
+    return switch(dr, branches, r, l, m, dr)
+
+
 def find_intermadiate_jacobi(dx, args):
     """Finds Jacobi function and its derivatives for nth loop."""
     r_jacobi, N, alpha, P_n1, P_n2, P_n = args
@@ -1560,6 +1607,19 @@ def _zernike_radial_rory_jvp(x, xdot):
     (rdot, ldot, mdot, drdot) = xdot
     f = zernike_radial_rory(r, l, m, dr)
     df = zernike_radial_rory(r, l, m, dr + 1)
+    # in theory l, m, dr aren't differentiable (they're integers)
+    # but marking them as non-diff argnums seems to cause escaped tracer values.
+    # probably a more elegant fix, but just setting those derivatives to zero seems
+    # to work fine.
+    return f, (df.T * rdot).T + 0 * ldot + 0 * mdot + 0 * drdot
+
+
+@zernike_radial_switch.defjvp
+def _zernike_radial_switch_jvp(x, xdot):
+    (r, l, m, dr) = x
+    (rdot, ldot, mdot, drdot) = xdot
+    f = zernike_radial_switch(r, l, m, dr)
+    df = zernike_radial_switch(r, l, m, dr + 1)
     # in theory l, m, dr aren't differentiable (they're integers)
     # but marking them as non-diff argnums seems to cause escaped tracer values.
     # probably a more elegant fix, but just setting those derivatives to zero seems
