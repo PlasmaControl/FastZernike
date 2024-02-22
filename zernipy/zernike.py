@@ -1,6 +1,8 @@
-import functools
-from zernipy.backend import *
+"""Functions for evaluating Zernike polynomials and their derivatives."""
 
+import functools
+
+from zernipy.backend import cond, custom_jvp, fori_loop, gammaln, jit, jnp, switch
 
 
 def jacobi_poly_single(x, n, alpha, beta=0, P_n1=0, P_n2=0):
@@ -1469,6 +1471,7 @@ def _zernike_radial_vectorized_rory(r, l, m, dr):
     # loop which will execute necessary n values.
     out = fori_loop(0, (M_max + 1).astype(int), body, (out))
     return out
+
 
 @jit
 def fourier(theta, m, NFP=1, dt=0):

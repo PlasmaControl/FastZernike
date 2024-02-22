@@ -1,7 +1,10 @@
+"""Classes for basis."""
+
 from abc import ABC, abstractmethod
 
-from zernipy.backend import *
-from zernipy.zernike import zernike_radial, fourier
+from zernipy.backend import fori_loop, jit, jnp, np
+from zernipy.zernike import fourier, zernike_radial
+
 
 def flatten_list(x, flatten_tuple=False):
     """Flatten a nested list.
@@ -27,6 +30,7 @@ def flatten_list(x, flatten_tuple=False):
     else:
         return [x]
 
+
 @jit
 def copy_coeffs(c_old, modes_old, modes_new, c_new=None):
     """Copy coefficients from one resolution to another."""
@@ -50,6 +54,7 @@ def copy_coeffs(c_old, modes_old, modes_new, c_new=None):
         c_new = fori_loop(0, modes_old.shape[0], body, c_new)
     return c_new
 
+
 def sign(x):
     """Sign function, but returns 1 for x==0.
 
@@ -67,6 +72,7 @@ def sign(x):
     x = np.atleast_1d(x)
     y = np.where(x == 0, 1, np.sign(x))
     return y
+
 
 class _Basis(ABC):
     """Basis is an abstract base class for spectral basis sets."""

@@ -1,5 +1,8 @@
+"""Functions for plotting."""
+
 import matplotlib
 import matplotlib.pyplot as plt
+
 from zernipy.backend import np
 from zernipy.grid import LinearGrid
 

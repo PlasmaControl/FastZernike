@@ -4,8 +4,8 @@ import os
 import re
 import warnings
 
-from termcolor import colored
 import numpy as np
+from termcolor import colored
 
 config = {"device": None, "avail_mem": None, "kind": None}
 
@@ -133,9 +133,7 @@ else:
         set_device(kind="cpu")
         warnings.warn(colored("Failed to load JAX", "red"))
         print(
-            "Using NumPy backend, version={}, dtype={}".format(
-                np.__version__, y.dtype
-            )
+            "Using NumPy backend, version={}, dtype={}".format(np.__version__, y.dtype)
         )
 print(
     "Using device: {}, with {:.2f} GB available memory".format(
@@ -144,7 +142,7 @@ print(
 )
 
 
-if use_jax:
+if use_jax:  # noqa C901
     jit = jax.jit
     fori_loop = jax.lax.fori_loop
     cond = jax.lax.cond
@@ -201,9 +199,7 @@ if use_jax:
 
 else:
     jit = lambda func, *args, **kwargs: func
-    import scipy.optimize
-    from scipy.integrate import odeint
-    from scipy.special import gammaln 
+    from scipy.special import gammaln  # noqa F401
 
     def put(arr, inds, vals):
         """Functional interface for array "fancy indexing".
