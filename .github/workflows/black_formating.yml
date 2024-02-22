@@ -15,13 +15,13 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r devtools/dev-requirements.txt
+          pip install -r dev-requirements.txt
       - name: Check files using the black formatter
         run: |
           black --version
-          black --check desc/ tests/ || black_return_code=$?
+          black --check zernipy/ tests/ || black_return_code=$?
           echo "BLACK_RETURN_CODE=$black_return_code" >> $GITHUB_ENV
-          black desc/ tests/
+          black zernipy/ tests/
       - name: Annotate diff changes using reviewdog
         uses: reviewdog/action-suggester@v1
         with:
