@@ -2,7 +2,7 @@ from zernipy.zernike import *
 import numpy as np
 
 
-def test_zernike_radial(self):  # noqa: C901
+def test_zernike_radial():  # noqa: C901
     """Test zernike_radial function, comparing to analytic formulas."""
     # https://en.wikipedia.org/wiki/Zernike_polynomials#Radial_polynomials
 
@@ -63,7 +63,7 @@ def test_zernike_radial(self):  # noqa: C901
         np.testing.assert_allclose(radial[dr], desired[dr], err_msg=dr)
 
 
-def test_jacobi_poly_single(self):
+def test_jacobi_poly_single():
     """Test Jacobi Polynomial evaluation for special cases."""
     # https://en.wikipedia.org/wiki/Jacobi_polynomials#Special_cases
 
@@ -98,7 +98,7 @@ def test_jacobi_poly_single(self):
             np.testing.assert_allclose(values[n], desired[n], err_msg=n)
 
 
-def test_fourier(self):
+def test_fourier():
     """Test Fourier series evaluation."""
     m = np.array([-1, 0, 1])
     t = np.linspace(0, 2 * np.pi, 8, endpoint=False)  # theta coordinates
