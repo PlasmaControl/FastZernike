@@ -4,8 +4,10 @@ import os
 import re
 import warnings
 
-import numpy as np
+import colorama
 from termcolor import colored
+
+colorama.init()
 
 config = {"device": None, "avail_mem": None, "kind": None}
 
@@ -88,55 +90,3 @@ def set_device(kind="cpu"):
             selected_gpu["mem_total"] - selected_gpu["mem_used"]
         ) / 1024  # in GB
         os.environ["CUDA_VISIBLE_DEVICES"] = str(selected_gpu["index"])
-
-
-if os.environ.get("DESC_BACKEND") == "numpy":
-    jnp = np
-    use_jax = False
-    set_device(kind="cpu")
-    print(
-        "Using numpy backend, version={}, dtype={}".format(
-            np.__version__, np.linspace(0, 1).dtype
-        )
-    )
-else:
-    if config.get("device") is None:
-        set_device("cpu")
-    try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            import jax
-            import jax.numpy as jnp
-            import jaxlib
-            from jax.config import config as jax_config
-
-            jax_config.update("jax_enable_x64", True)
-            if config.get("kind") == "gpu" and len(jax.devices("gpu")) == 0:
-                warnings.warn(
-                    "JAX failed to detect GPU, are you sure you "
-                    + "installed JAX with GPU support?"
-                )
-                set_device("cpu")
-            x = jnp.linspace(0, 5)
-            y = jnp.exp(x)
-        use_jax = True
-        print(
-            f"using JAX backend, jax version={jax.__version__}, "
-            + f"jaxlib version={jaxlib.__version__}, dtype={y.dtype}"
-        )
-        del x, y
-    except ModuleNotFoundError:
-        jnp = np
-        x = jnp.linspace(0, 5)
-        y = jnp.exp(x)
-        use_jax = False
-        set_device(kind="cpu")
-        warnings.warn(colored("Failed to load JAX", "red"))
-        print(
-            "Using NumPy backend, version={}, dtype={}".format(np.__version__, y.dtype)
-        )
-print(
-    "Using device: {}, with {:.2f} GB available memory".format(
-        config.get("device"), config.get("avail_mem")
-    )
-)
