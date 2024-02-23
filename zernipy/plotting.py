@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 
 from zernipy.backend import np
 from zernipy.grid import LinearGrid
+from zernipy.zernike import fourier, zernike_radial
 
 
 def _set_tight_layout(fig):
@@ -49,13 +50,11 @@ def plot_basis(basis, return_data=False, **kwargs):
 
     Examples
     --------
-    .. image:: ../../_static/images/plotting/plot_basis.png
-
     .. code-block:: python
 
-        from desc.plotting import plot_basis
-        from desc.basis import DoubleFourierSeries
-        basis = DoubleFourierSeries(M=3, N=2)
+        from zernipy.plotting import plot_basis
+        from zernipy.basis import ZernikePolynomial
+        basis = basis = ZernikePolynomial(L=5, M=5)
         fig, ax = plot_basis(basis)
 
     """
@@ -116,5 +115,152 @@ def plot_basis(basis, return_data=False, **kwargs):
         _set_tight_layout(fig)
         if return_data:
             return fig, ax, plot_data
+
+        return fig, ax
+
+
+def plot_mode(mode, rho=100, theta=100, **kwargs):
+    """Plot basis functions.
+
+    Parameters
+    ----------
+    mode : (2,) array
+        [L, M] mode to plot
+    rho : int, optional
+        Number of points in the radial direction
+    theta : int, optional
+        Number of points in the angular direction
+    **kwargs : dict, optional
+        Specify properties of the figure, axis, and plot appearance e.g.::
+
+            plot_X(figsize=(4,6),cmap="plasma")
+
+        Valid keyword arguments are:
+
+        * ``figsize``: tuple of length 2, the size of the figure (to be passed to
+          matplotlib)
+        * ``cmap``: str, matplotlib colormap scheme to use, passed to ax.contourf
+        * ``title_fontsize``: integer, font size of the title
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Figure being plotted to.
+    ax : matplotlib.axes.Axes, ndarray of axes, or dict of axes
+        Axes used for plotting. A single axis is used for 1d basis functions,
+        2d or 3d bases return an ndarray or dict of axes.    return_data : bool
+        if True, return the data plotted as well as fig,ax
+    plot_data : dict
+        dictionary of the data plotted, only returned if ``return_data=True``
+
+    Examples
+    --------
+    .. code-block:: python
+
+        from zernipy.plotting import plot_mode
+        mode = [3, 1]
+        fig, ax = plot_mode(mode)
+
+    """
+    if len(mode) == 2:
+        L = mode[0]
+        M = mode[1]
+
+        grid = LinearGrid(rho=rho, theta=theta, endpoint=True)
+        r = grid.nodes[grid.unique_rho_idx, 0]
+        v = grid.nodes[grid.unique_theta_idx, 1]
+
+        fig = plt.figure(figsize=kwargs.get("figsize", (8, 8)))
+
+        radial = zernike_radial(r, L, M)
+        poloidal = fourier(v, M)
+
+        Z = radial * poloidal
+
+        ax = plt.subplot(1, 2, 1, projection="polar")
+        ax.set_title("$l={}, m={}$".format(L, M))
+        ax.axis("off")
+        im = ax.contourf(
+            v,
+            r,
+            Z,
+            levels=np.linspace(-1, 1, 200),
+            cmap=kwargs.get("cmap", "coolwarm"),
+        )
+        fig.colorbar(im, ax=ax, shrink=0.4)
+
+        return fig, ax
+
+
+def plot_modes(modes, rho=100, theta=100, **kwargs):
+    """Plot basis functions.
+
+    Parameters
+    ----------
+    modes : (2,N) array
+        N different [L, M] modes to plot
+    rho : int, optional
+        Number of points in the radial direction
+    theta : int, optional
+        Number of points in the angular direction
+    **kwargs : dict, optional
+        Specify properties of the figure, axis, and plot appearance e.g.::
+
+            plot_X(figsize=(4,6),cmap="plasma")
+
+        Valid keyword arguments are:
+
+        * ``figsize``: tuple of length 2, the size of the figure (to be passed to
+          matplotlib)
+        * ``cmap``: str, matplotlib colormap scheme to use, passed to ax.contourf
+        * ``title_fontsize``: integer, font size of the title
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Figure being plotted to.
+    ax : matplotlib.axes.Axes, ndarray of axes, or dict of axes
+        Axes used for plotting. A single axis is used for 1d basis functions,
+        2d or 3d bases return an ndarray or dict of axes.    return_data : bool
+        if True, return the data plotted as well as fig,ax
+    plot_data : dict
+        dictionary of the data plotted, only returned if ``return_data=True``
+
+    Examples
+    --------
+    .. code-block:: python
+
+        from zernipy.plotting import plot_modes
+        modes = np.array([[4, 2], [3,1], [3,3]])
+        fig, ax = plot_modes(modes)
+
+    """
+    if modes.shape[1] == 2:
+        L = modes[:, 0]
+        M = modes[:, 1]
+
+        grid = LinearGrid(rho=rho, theta=theta, endpoint=True)
+        r = grid.nodes[grid.unique_rho_idx, 0]
+        v = grid.nodes[grid.unique_theta_idx, 1]
+
+        fig = plt.figure(figsize=kwargs.get("figsize", (8, 8)))
+
+        radial = zernike_radial(r, L, M)
+        poloidal = fourier(v, M)
+
+        print(radial.shape, poloidal.shape)
+
+        Z = radial * poloidal
+
+        ax = plt.subplot(1, 2, 1, projection="polar")
+        ax.axis("off")
+        im = ax.contourf(
+            v,
+            r,
+            Z,
+            levels=np.linspace(-1, 1, 10000),
+            cmap=kwargs.get("cmap", "coolwarm"),
+        )
+        fig.colorbar(im, ax=ax, shrink=0.4)
 
         return fig, ax
