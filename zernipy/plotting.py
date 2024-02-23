@@ -187,7 +187,7 @@ def plot_mode(mode, rho=100, theta=100, **kwargs):
             levels=np.linspace(-1, 1, 200),
             cmap=kwargs.get("cmap", "coolwarm"),
         )
-        fig.colorbar(im, ax=ax, shrink=0.4)
+        fig.colorbar(im, ax=ax, shrink=0.3, ticks=np.linspace(-1, 1, 9))
 
         return fig, ax
 
@@ -245,22 +245,21 @@ def plot_modes(modes, rho=100, theta=100, **kwargs):
 
         fig = plt.figure(figsize=kwargs.get("figsize", (8, 8)))
 
-        radial = zernike_radial(r, L, M)
-        poloidal = fourier(v, M)
-
-        print(radial.shape, poloidal.shape)
-
-        Z = radial * poloidal
-
+        Z = np.zeros((r.size, v.size))
+        for l, m in zip(L, M):
+            radial = zernike_radial(r, l, m)
+            poloidal = fourier(v, m)
+            Z += radial * poloidal
+        Z = Z / L.size
         ax = plt.subplot(1, 2, 1, projection="polar")
         ax.axis("off")
         im = ax.contourf(
             v,
             r,
             Z,
-            levels=np.linspace(-1, 1, 10000),
+            levels=np.linspace(-1, 1, 200),
             cmap=kwargs.get("cmap", "coolwarm"),
         )
-        fig.colorbar(im, ax=ax, shrink=0.4)
+        fig.colorbar(im, ax=ax, shrink=0.4, ticks=np.linspace(-1, 1, 9))
 
         return fig, ax
