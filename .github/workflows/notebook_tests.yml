@@ -30,9 +30,9 @@ jobs:
           pip install -r dev-requirements.txt
 
 
-          - name: Test notebooks with pytest and nbmake
-          run: |
-            pwd
-            lscpu
-            export PYTHONPATH=$(pwd)
-            pytest -v --nbmake "./docs/notebooks" --nbmake-timeout=1000
+      - name: Test notebooks with pytest and nbmake
+        run: |
+          pwd
+          lscpu
+          export PYTHONPATH=$(pwd)
+          pytest -v --nbmake "./docs/notebooks" --nbmake-timeout=1000
