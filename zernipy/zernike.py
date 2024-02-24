@@ -757,7 +757,7 @@ def zernike_radial_rory(r, l, m, dr=0):
     return _zernike_radial_vectorized_rory(r, l, m, dr)
 
 
-@functools.partial(jit(device=jax.devices("cpu")), static_argnums=3)
+@functools.partial(jit, device=jax.devices("cpu")[0], static_argnums=3)
 def zernike_radial(r, l, m, dr=0):
     """Radial part of zernike polynomials.
 
