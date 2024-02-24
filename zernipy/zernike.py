@@ -2,7 +2,7 @@
 
 import functools
 
-from zernipy.backend import cond, custom_jvp, fori_loop, gammaln, jax, jit, jnp, switch
+from zernipy.backend import cond, custom_jvp, fori_loop, gammaln, jit, jnp, switch
 
 
 def jacobi_poly_single(x, n, alpha, beta=0, P_n1=0, P_n2=0):
@@ -757,7 +757,7 @@ def zernike_radial_rory(r, l, m, dr=0):
     return _zernike_radial_vectorized_rory(r, l, m, dr)
 
 
-@functools.partial(jit, device=jax.devices("cpu")[0], static_argnums=3)
+@functools.partial(jit, static_argnums=3)
 def zernike_radial(r, l, m, dr=0):
     """Radial part of zernike polynomials.
 
@@ -1032,7 +1032,7 @@ def zernike_radial_old_desc(r, l, m, dr=0):
 
 @custom_jvp
 @jit
-def zernike_radial_newest(r, l, m, dr=0):
+def zernike_radial_if_switch(r, l, m, dr=0):
     """Radial part of zernike polynomials.
 
     Calculates Radial part of Zernike Polynomials using Jacobi recursion relation
@@ -1958,12 +1958,12 @@ def _zernike_radial_switch_jvp(x, xdot):
     return f, (df.T * rdot).T + 0 * ldot + 0 * mdot + 0 * drdot
 
 
-@zernike_radial_newest.defjvp
+@zernike_radial_if_switch.defjvp
 def _zernike_radial_jvp(x, xdot):
     (r, l, m, dr) = x
     (rdot, ldot, mdot, drdot) = xdot
-    f = zernike_radial_newest(r, l, m, dr)
-    df = zernike_radial_newest(r, l, m, dr + 1)
+    f = zernike_radial_if_switch(r, l, m, dr)
+    df = zernike_radial_if_switch(r, l, m, dr + 1)
     # in theory l, m, dr aren't differentiable (they're integers)
     # but marking them as non-diff argnums seems to cause escaped tracer values.
     # probably a more elegant fix, but just setting those derivatives to zero seems
