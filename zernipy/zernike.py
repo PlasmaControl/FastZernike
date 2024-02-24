@@ -2,7 +2,7 @@
 
 import functools
 
-from zernipy.backend import cond, custom_jvp, fori_loop, gammaln, jit, jnp, switch
+from zernipy.backend import cond, custom_jvp, fori_loop, gammaln, jax, jit, jnp, switch
 
 
 def jacobi_poly_single(x, n, alpha, beta=0, P_n1=0, P_n2=0):
@@ -757,7 +757,7 @@ def zernike_radial_rory(r, l, m, dr=0):
     return _zernike_radial_vectorized_rory(r, l, m, dr)
 
 
-@functools.partial(jit, static_argnums=3)
+@functools.partial(jit(device=jax.devices("cpu")), static_argnums=3)
 def zernike_radial(r, l, m, dr=0):
     """Radial part of zernike polynomials.
 
