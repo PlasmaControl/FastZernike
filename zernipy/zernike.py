@@ -1147,6 +1147,53 @@ def zernike_radial_switch(r, l, m, dr=0):
     return switch(dr, branches, r, l, m, dr)
 
 
+@custom_jvp
+@jit
+def zernike_radial_mask(r, l, m, dr=0):
+    """Radial part of zernike polynomials.
+
+    Calculates Radial part of Zernike Polynomials using Jacobi recursion relation
+    by getting rid of the redundant calculations for appropriate modes.
+    https://en.wikipedia.org/wiki/Jacobi_polynomials#Recurrence_relations
+
+    For the derivatives, the following formula is used with above recursion relation,
+    https://en.wikipedia.org/wiki/Jacobi_polynomials#Derivatives
+
+    Used formulas are also in the zerike_eval.ipynb notebook in docs.
+
+    This function can be made faster. However, JAX reverse mode AD causes problems.
+    In future, we may use vmap() instead of jnp.vectorize() to be able to set dr as
+    static argument, and not calculate every derivative even thoguh not asked.
+
+    Parameters
+    ----------
+    r : ndarray, shape(N,) or scalar
+        radial coordinates to evaluate basis
+    l : ndarray of int, shape(K,) or integer
+        radial mode number(s)
+    m : ndarray of int, shape(K,) or integer
+        azimuthal mode number(s)
+    dr : int
+        order of derivative (Default = 0)
+
+    Returns
+    -------
+    out : ndarray, shape(N,K)
+        basis function(s) evaluated at specified points
+
+    """
+    dr = jnp.asarray(dr).astype(int)
+
+    branches = [
+        _zernike_radial_vectorized_mask,
+        _zernike_radial_vectorized_d1,
+        _zernike_radial_vectorized_d2,
+        _zernike_radial_vectorized_d3,
+        _zernike_radial_vectorized_d4,
+    ]
+    return switch(dr, branches, r, l, m, dr)
+
+
 def find_intermadiate_jacobi(dx, args):
     """Finds Jacobi function and its derivatives for nth loop."""
     r_jacobi, N, alpha, P_n1, P_n2, P_n = args
@@ -1800,6 +1847,74 @@ def _zernike_radial_vectorized_rory(r, l, m, dr):
     out = fori_loop(0, (M_max + 1).astype(int), body, (out))
     return out
 
+@functools.partial(jnp.vectorize, excluded=(1, 2, 3), signature="()->(k)")
+def _zernike_radial_vectorized_mask(r, l, m, dr):
+    """Calculation of Radial part of Zernike polynomials."""
+
+    def body_inner(N, args):
+        alpha, out, P_past = args
+        P_n2 = P_past[0]  # Jacobi at N-2
+        P_n1 = P_past[1]  # Jacobi at N-1
+        P_n = jacobi_poly_single(r_jacobi, N, alpha, 0, P_n1, P_n2)
+
+        # Only calculate the function at dr th index with input r
+        result = (-1) ** N * r**alpha * P_n
+        # Check if the calculated values is in the given modes
+        mask = jnp.logical_and(m == alpha, n == N)
+        result = (-1) ** N * r**alpha * P_n
+        out = jnp.where(mask, result, out)
+
+        # Shift past values if needed
+        # For derivative order dx, if N is smaller than 2+dx, then only the initial
+        # value calculated by find_init_jacobi function will be used. So, if you update
+        # P_n's, preceeding values will be wrong.
+        mask = N >= 2
+        P_n2 = jnp.where(mask, P_n1, P_n2)
+        P_n1 = jnp.where(mask, P_n, P_n1)
+        # Form updated P_past matrix
+        P_past = P_past.at[0].set(P_n2)
+        P_past = P_past.at[1].set(P_n1)
+
+        return (alpha, out, P_past)
+
+    def body(alpha, out):
+        # find l values with m values equal to alpha
+        l_alpha = jnp.where(m == alpha, l, 0)
+        # find the maximum among them
+        L_max = jnp.max(l_alpha)
+        # Maximum possible value for n for loop bound
+        N_max = (L_max - alpha) // 2
+
+        # First 2 Jacobi Polynomials (they don't need recursion)
+        # P_past stores last 2 Jacobi polynomials (and required derivatives)
+        # evaluated at given r points
+        P_past = jnp.zeros(2)
+        P_past = P_past.at[0].set(jacobi_poly_single(r_jacobi, 0, alpha, beta=0))
+        # Jacobi for n=1
+        P_past = P_past.at[1].set(jacobi_poly_single(r_jacobi, 1, alpha, beta=0))
+
+        # Loop over every n value
+        _, out, _ = fori_loop(
+            0, (N_max + 1).astype(int), body_inner, (alpha, out, P_past)
+        )
+        return out
+
+    # Make inputs 1D arrays in case they aren't
+    m = jnp.atleast_1d(m)
+    l = jnp.atleast_1d(l)
+
+    # From the vectorization, the overall output will be (r.size, m.size)
+    out = jnp.zeros(m.size)
+    r_jacobi = 1 - 2 * r**2
+    m = jnp.abs(m)
+    n = ((l - m) // 2).astype(int)
+
+    M_max = jnp.max(m)
+    # Loop over every different m value. There is another nested
+    # loop which will execute necessary n values.
+    out = fori_loop(0, (M_max + 1).astype(int), body, (out))
+    return out
+
 
 @jit
 def fourier(theta, m, NFP=1, dt=0):
@@ -1938,6 +2053,19 @@ def _zernike_radial_rory_jvp(x, xdot):
     (rdot, ldot, mdot, drdot) = xdot
     f = zernike_radial_rory(r, l, m, dr)
     df = zernike_radial_rory(r, l, m, dr + 1)
+    # in theory l, m, dr aren't differentiable (they're integers)
+    # but marking them as non-diff argnums seems to cause escaped tracer values.
+    # probably a more elegant fix, but just setting those derivatives to zero seems
+    # to work fine.
+    return f, (df.T * rdot).T + 0 * ldot + 0 * mdot + 0 * drdot
+
+
+@zernike_radial_mask.defjvp
+def _zernike_radial_rory_jvp(x, xdot):
+    (r, l, m, dr) = x
+    (rdot, ldot, mdot, drdot) = xdot
+    f = zernike_radial_mask(r, l, m, dr)
+    df = zernike_radial_mask(r, l, m, dr + 1)
     # in theory l, m, dr aren't differentiable (they're integers)
     # but marking them as non-diff argnums seems to cause escaped tracer values.
     # probably a more elegant fix, but just setting those derivatives to zero seems
