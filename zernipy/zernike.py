@@ -1860,10 +1860,8 @@ def _zernike_radial_vectorized_gpu(r, l, m, dr):
 
         # Check if the calculated values is in the given modes
         result = (-1) ** N * r**alpha * P_n
-        mask0 = jnp.where(
-            jnp.logical_and(m == alpha, n == N), jnp.arange(m.size), m.size + 1
-        )
-        out = out.at[mask0].set(result, mode="drop")
+        mask0 = jnp.logical_and(m == alpha, n == N)
+        out = jnp.where(mask0, result, out)
 
         # Shift past values if needed
         # For derivative order dx, if N is smaller than 2+dx, then only the initial
