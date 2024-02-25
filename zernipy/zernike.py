@@ -1353,6 +1353,11 @@ def zernike_radial_jvp_gpu(r, l, m, dr=0, repeat=1):
             "Analytic radial derivatives of Zernike polynomials for order>4 "
             + "have not been implemented."
         )
+    def update(x, args):
+        index, result, out = args
+        idx = index[x]
+        out = out.at[:, idx].set(result[:, None])
+        return (index, result, out)
     
     def body_inner(N, args):
         alpha, out, P_past = args
@@ -1419,7 +1424,7 @@ def zernike_radial_jvp_gpu(r, l, m, dr=0, repeat=1):
                 + coef[4] * 256 * r ** (alpha + 4) * P_n[4]
             )
         index = jnp.argwhere(jnp.logical_and(m == alpha, n == N),  size=repeat)
-        out = out.at[:, index].set(jnp.tile(result[:, jnp.newaxis], repeat)[:, :, jnp.newaxis])
+        _, _, out = fori_loop(0, repeat, update, (index, result, out))
         
         # Shift past values if needed
         mask = N >= 2 + dxs
