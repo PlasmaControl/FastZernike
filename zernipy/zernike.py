@@ -1859,9 +1859,11 @@ def _zernike_radial_vectorized_gpu(r, l, m, dr):
         P_n = jacobi_poly_single(r_jacobi, N, alpha, 0, P_n1, P_n2)
 
         # Check if the calculated values is in the given modes
-        mask = jnp.logical_and(m == alpha, n == N)
         result = (-1) ** N * r**alpha * P_n
-        out = jnp.where(mask, result, out)
+        mask0 = jnp.where(
+            jnp.logical_and(m == alpha, n == N), jnp.arange(m.size), m.size + 1
+        )
+        out = out.at[mask0].set(result, mode="drop")
 
         # Shift past values if needed
         # For derivative order dx, if N is smaller than 2+dx, then only the initial
@@ -1944,8 +1946,10 @@ def _zernike_radial_vectorized_d1_gpu(r, l, m, dr):
             - coef[1] * 4 * r ** (alpha + 1) * P_n[1]
         )
         # Check if the calculated values is in the given modes
-        mask = jnp.logical_and(m == alpha, n == N)
-        out = jnp.where(mask, result, out)
+        mask0 = jnp.where(
+            jnp.logical_and(m == alpha, n == N), jnp.arange(m.size), m.size + 1
+        )
+        out = out.at[mask0].set(result, mode="drop")
 
         # Shift past values if needed
         # For derivative order dx, if N is smaller than 2+dx, then only the initial
@@ -2036,9 +2040,10 @@ def _zernike_radial_vectorized_d2_gpu(r, l, m, dr):
             + coef[2] * 16 * r ** (alpha + 2) * P_n[2]
         )
         # Check if the calculated values is in the given modes
-        mask = jnp.logical_and(m == alpha, n == N)
-        out = jnp.where(mask, result, out)
-
+        mask0 = jnp.where(
+            jnp.logical_and(m == alpha, n == N), jnp.arange(m.size), m.size + 1
+        )
+        out = out.at[mask0].set(result, mode="drop")
         # Shift past values if needed
         # For derivative order dx, if N is smaller than 2+dx, then only the initial
         # value calculated by find_init_jacobi function will be used. So, if you update
@@ -2130,8 +2135,10 @@ def _zernike_radial_vectorized_d3_gpu(r, l, m, dr):
             - coef[3] * 64 * r ** (alpha + 3) * P_n[3]
         )
         # Check if the calculated values is in the given modes
-        mask = jnp.logical_and(m == alpha, n == N)
-        out = jnp.where(mask, result, out)
+        mask0 = jnp.where(
+            jnp.logical_and(m == alpha, n == N), jnp.arange(m.size), m.size + 1
+        )
+        out = out.at[mask0].set(result, mode="drop")
 
         # Shift past values if needed
         # For derivative order dx, if N is smaller than 2+dx, then only the initial
@@ -2235,8 +2242,10 @@ def _zernike_radial_vectorized_d4_gpu(r, l, m, dr):
             + coef[4] * 256 * r ** (alpha + 4) * P_n[4]
         )
         # Check if the calculated values is in the given modes
-        mask = jnp.logical_and(m == alpha, n == N)
-        out = jnp.where(mask, result, out)
+        mask0 = jnp.where(
+            jnp.logical_and(m == alpha, n == N), jnp.arange(m.size), m.size + 1
+        )
+        out = out.at[mask0].set(result, mode="drop")
 
         # Shift past values if needed
         # For derivative order dx, if N is smaller than 2+dx, then only the initial
