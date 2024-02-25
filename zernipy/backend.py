@@ -68,6 +68,7 @@ if use_jax:  # noqa C901
     while_loop = jax.lax.while_loop
     vmap = jax.vmap
     scan = jax.lax.scan
+    select = jax.lax.select
     bincount = jnp.bincount
     from jax import custom_jvp
     from jax.scipy.special import gammaln

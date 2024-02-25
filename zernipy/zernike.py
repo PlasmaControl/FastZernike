@@ -2,7 +2,7 @@
 
 import functools
 
-from zernipy.backend import cond, custom_jvp, fori_loop, gammaln, jax, jit, jnp, scan, switch
+from zernipy.backend import cond, custom_jvp, fori_loop, gammaln, jit, jnp, select, switch
 
 
 def jacobi_poly_single(x, n, alpha, beta=0, P_n1=0, P_n2=0):
@@ -1321,8 +1321,8 @@ def zernike_radial_jvp(r, l, m, dr=0):
 
 
 @custom_jvp
-@functools.partial(jit, static_argnums=3)
-def zernike_radial_jvp_gpu(r, l, m, dr=0):
+@functools.partial(jit, static_argnums=[3,4])
+def zernike_radial_jvp_gpu(r, l, m, dr=0, repeat=1):
     """Radial part of zernike polynomials.
 
     Calculates Radial part of Zernike Polynomials using Jacobi recursion relation
@@ -1353,23 +1353,7 @@ def zernike_radial_jvp_gpu(r, l, m, dr=0):
             "Analytic radial derivatives of Zernike polynomials for order>4 "
             + "have not been implemented."
         )
-
-    def update(args, x):
-        alpha, N, result, out = args
-        idx = jnp.where(jnp.logical_and(m[x] == alpha, n[x] == N), x, -1)
-
-        def falseFun(args):
-            _, _, out = args
-            return out
-
-        def trueFun(args):
-            idx, result, out = args
-            out = out.at[:, idx].set(result)
-            return out
-
-        out = cond(idx >= 0, trueFun, falseFun, (idx, result, out))
-        return (alpha, N, result, out), None
-
+    
     def body_inner(N, args):
         alpha, out, P_past = args
         P_n2 = P_past[0]
@@ -1434,7 +1418,8 @@ def zernike_radial_jvp_gpu(r, l, m, dr=0):
                 - coef[3] * 128 * (2 * alpha + 3) * r ** (alpha + 2) * P_n[3]
                 + coef[4] * 256 * r ** (alpha + 4) * P_n[4]
             )
-        (_, _, _, out), _ = scan(update, (alpha, N, result, out), jnp.arange(m.size))
+        index = jnp.argwhere(jnp.logical_and(m == alpha, n == N),  size=repeat)
+        out = out.at[:, index].set(jnp.tile(result[:, jnp.newaxis], repeat)[:, :, jnp.newaxis])
         
         # Shift past values if needed
         mask = N >= 2 + dxs
