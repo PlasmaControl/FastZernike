@@ -1,7 +1,8 @@
 """Classes for representing flux coordinates."""
 
 from abc import ABC, abstractmethod
-from zernipy.backend import np, jnp, put
+
+from zernipy.backend import jnp, np, put
 
 
 class _Indexable:
