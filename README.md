@@ -4,7 +4,7 @@ A python library to calculate Zernike Polynomials fast and accurately
 
 To create conda environment:
 ```
-conda create --name zernipy-env 'python>=3.8, <=3.11'
+conda create --name zernipy-env 'python>=3.8, <=3.12'
 conda activate zernipy-env
 pip install -r requirements.txt
 ```

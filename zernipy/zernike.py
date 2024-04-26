@@ -406,7 +406,7 @@ def zernike_radial_old_desc(r, l, m, dr=0):
         basis function(s) evaluated at specified points
 
     """
-    m = jnp.abs(m)
+    m = jnp.abs(m).astype(float)
     alpha = m
     beta = 0
     n = (l - m) // 2
