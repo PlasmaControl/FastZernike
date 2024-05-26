@@ -1,9 +1,9 @@
 """Functions for evaluating Zernike polynomials and their derivatives."""
 
 import functools
-from math import factorial
 
 import mpmath
+
 from zernipax.backend import cond, custom_jvp, fori_loop, gammaln, jit, jnp, np, switch
 
 
@@ -2056,13 +2056,15 @@ def polyder_vec(p, m, exact=False):
 
 
 def _polyder_exact(p, m):
+    from scipy.special import factorial
+
     m = np.asarray(m, dtype=int)  # order of derivative
     p = np.atleast_2d(p)
     order = p.shape[1] - 1
 
     D = np.arange(order, -1, -1)
-    num = np.array([factorial(i) for i in D], dtype=object)
-    den = np.array([factorial(max(i - m, 0)) for i in D], dtype=object)
+    num = np.array([factorial(i, exact=True) for i in D], dtype=object)
+    den = np.array([factorial(max(i - m, 0), exact=True) for i in D], dtype=object)
     D = (num // den).astype(p.dtype)
 
     p = np.roll(D * p, m, axis=1)
@@ -2188,9 +2190,9 @@ def zernike_radial_coeffs(l, m, exact=True):
     lms, idx = np.unique(lm, return_inverse=True, axis=0)
 
     if exact:
-        from scipy.special import factorial as scipyFactorial
+        from scipy.special import factorial
 
-        _factorial = scipyFactorial
+        _factorial = lambda x: factorial(x, exact=True)
     else:
         _factorial = factorial
     npoly = len(lms)
