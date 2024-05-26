@@ -2,10 +2,9 @@
 
 import matplotlib
 import matplotlib.pyplot as plt
-
-from zernipy.backend import np
-from zernipy.grid import LinearGrid
-from zernipy.zernike import fourier, zernike_radial
+from zernipax.backend import np
+from zernipax.grid import LinearGrid
+from zernipax.zernike import fourier, zernike_radial
 
 
 def _set_tight_layout(fig):

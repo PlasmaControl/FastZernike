@@ -2,8 +2,8 @@
 
 from abc import ABC, abstractmethod
 
-from zernipy.backend import fori_loop, jit, jnp, np
-from zernipy.zernike import fourier, zernike_radial
+from zernipax.backend import fori_loop, jit, jnp, np
+from zernipax.zernike import fourier, zernike_radial
 
 
 def flatten_list(x, flatten_tuple=False):

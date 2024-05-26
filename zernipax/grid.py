@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 
-from zernipy.backend import jnp, np, put
+from zernipax.backend import jnp, np, put
 
 
 class _Indexable:

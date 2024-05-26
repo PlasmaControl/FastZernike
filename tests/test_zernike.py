@@ -1,5 +1,7 @@
-from zernipy.zernike import *
+"""Tests for zernipax.zernike module."""
+
 import numpy as np
+from zernipax.zernike import fourier, jacobi_poly_single, zernike_radial
 
 
 def test_zernike_radial():  # noqa: C901

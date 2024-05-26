@@ -5,8 +5,7 @@ import warnings
 
 import numpy as np
 from termcolor import colored
-
-from zernipy import config, set_device
+from zernipax import config, set_device
 
 if os.environ.get("DESC_BACKEND") == "numpy":
     jnp = np
