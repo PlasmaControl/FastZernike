@@ -19,9 +19,9 @@ jobs:
       - name: Check files using the black formatter
         run: |
           black --version
-          black --check zernipy/ tests/ || black_return_code=$?
+          black --check zernipax/ tests/ || black_return_code=$?
           echo "BLACK_RETURN_CODE=$black_return_code" >> $GITHUB_ENV
-          black zernipy/ tests/
+          black zernipax/ tests/
       - name: Annotate diff changes using reviewdog
         uses: reviewdog/action-suggester@v1
         with:

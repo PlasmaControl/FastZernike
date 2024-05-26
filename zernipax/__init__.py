@@ -1,4 +1,4 @@
-"""Set up the device for zernipy."""
+"""Set up the device for zernipax."""
 
 import os
 import re

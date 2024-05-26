@@ -1,10 +1,11 @@
-"""Backend functions for ZerniPy, with options for JAX or regular numpy."""
+"""Backend functions for zernipax, with options for JAX or regular numpy."""
 
 import os
 import warnings
 
 import numpy as np
 from termcolor import colored
+
 from zernipax import config, set_device
 
 if os.environ.get("DESC_BACKEND") == "numpy":

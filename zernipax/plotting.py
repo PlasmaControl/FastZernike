@@ -2,6 +2,7 @@
 
 import matplotlib
 import matplotlib.pyplot as plt
+
 from zernipax.backend import np
 from zernipax.grid import LinearGrid
 from zernipax.zernike import fourier, zernike_radial
@@ -51,8 +52,8 @@ def plot_basis(basis, return_data=False, **kwargs):
     --------
     .. code-block:: python
 
-        from zernipy.plotting import plot_basis
-        from zernipy.basis import ZernikePolynomial
+        from zernipax.plotting import plot_basis
+        from zernipax.basis import ZernikePolynomial
         basis = basis = ZernikePolynomial(L=5, M=5)
         fig, ax = plot_basis(basis)
 
@@ -156,7 +157,7 @@ def plot_mode(mode, rho=100, theta=100, **kwargs):
     --------
     .. code-block:: python
 
-        from zernipy.plotting import plot_mode
+        from zernipax.plotting import plot_mode
         mode = [3, 1]
         fig, ax = plot_mode(mode)
 
@@ -229,7 +230,7 @@ def plot_modes(modes, rho=100, theta=100, **kwargs):
     --------
     .. code-block:: python
 
-        from zernipy.plotting import plot_modes
+        from zernipax.plotting import plot_modes
         modes = np.array([[4, 2], [3,1], [3,3]])
         fig, ax = plot_modes(modes)
 
