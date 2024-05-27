@@ -2194,6 +2194,8 @@ def zernike_radial_coeffs(l, m, exact=True):
 
         _factorial = lambda x: factorial(x, exact=True)
     else:
+        from math import factorial
+
         _factorial = factorial
     npoly = len(lms)
     lmax = np.max(lms[:, 0])
