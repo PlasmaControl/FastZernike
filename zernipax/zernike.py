@@ -278,8 +278,18 @@ def zernike_radial(r, l, m, dr=0):
             0, dr + 1, find_inter_jacobi, (N, alpha, P_n1, P_n2, P_n)
         )
 
-        coef = jnp.exp(
-            gammaln(alpha + N + 1 + dxs) - dxs * jnp.log(2) - gammaln(alpha + N + 1)
+        coef = jnp.array(
+            [
+                0,
+                (alpha + N + 1) / 2,
+                (alpha + N + 2) * (alpha + N + 1) / 4,
+                (alpha + N + 3) * (alpha + N + 2) * (alpha + N + 1) / 8,
+                (alpha + N + 4)
+                * (alpha + N + 3)
+                * (alpha + N + 2)
+                * (alpha + N + 1)
+                / 16,
+            ]
         )
         # TODO: A version without if statements are possible?
         if dr == 0:
@@ -1902,12 +1912,19 @@ def _jacobi(n, alpha, beta, x, dx=0):
     n, alpha, beta, x = map(jnp.asarray, (n, alpha, beta, x))
 
     # coefficient for derivative
-    c = (
-        gammaln(alpha + beta + n + 1 + dx)
-        - dx * jnp.log(2)
-        - gammaln(alpha + beta + n + 1)
-    )
-    c = jnp.exp(c)
+    def poch(x, dx):
+        def body(k, val):
+            return val * (x + k)
+
+        return fori_loop(0, dx, body, 1)
+
+    # c = ( # noqa: E800
+    #     gammaln(alpha + beta + n + 1 + dx) # noqa: E800
+    #     - dx * jnp.log(2) # noqa: E800
+    #     - gammaln(alpha + beta + n + 1) # noqa: E800
+    # ) # noqa: E800
+    # c = jnp.exp(c) # noqa: E800
+    c = poch(alpha + n + 1, dx) / (2**dx)
     # taking derivative is same as coeff*jacobi but for shifted n,a,b
     n -= dx
     alpha += dx
