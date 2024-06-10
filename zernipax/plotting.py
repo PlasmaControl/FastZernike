@@ -263,3 +263,67 @@ def plot_modes(modes, rho=100, theta=100, **kwargs):
         fig.colorbar(im, ax=ax, shrink=0.4, ticks=np.linspace(-1, 1, 9))
 
         return fig, ax
+
+
+def plot_comparison(exact, methods, basis, dx=0, type="absolute"):
+    """Plot comparison of exact and approximate methods."""
+    assert type in ["absolute", "relative"], "type must be 'absolute' or 'relative'"
+
+    N = len(methods)
+    res = basis.L
+
+    cmap = plt.cm.jet  # define the colormap
+    # extract all colors from the .jet map
+    cmaplist = [cmap(i) for i in range(cmap.N)]
+
+    # create the new map
+    cmap = matplotlib.colors.LinearSegmentedColormap.from_list(
+        "Custom cmap", cmaplist, cmap.N
+    )
+
+    # define the bins and normalize
+    bounds = np.logspace(-16, 1, 17)
+    norm = matplotlib.colors.BoundaryNorm(bounds, cmap.N)
+
+    fig, ax = plt.subplots(1, N, squeeze=True, figsize=(N * 5 + 3, 5))
+    for i in range(N):
+        if dx == 0:
+            Zmn = "Z_{nm}(x)"
+            Zmn_p = "\\tilde{Z}_{nm}(x)"
+        else:
+            derv = "^" + str(dx) if dx > 1 else ""
+            Zmn = "\\frac{d" + derv + "Z_{nm}(x)}{d x" + derv + "}"
+            Zmn_p = "\\frac{d" + derv + "\\tilde{Z}_{nm}(x)}{d x" + derv + "}"
+        if type == "absolute":
+            c = np.max(abs(methods[i] - exact), axis=0) / np.mean(abs(exact))
+            title = (
+                f"Method {i+1}:" + "$\\max_{x \\in (0,1)} |" + Zmn + "-" + Zmn_p + "|$"
+            )
+        else:
+            c = np.max(abs(methods[i] - exact), axis=0)
+            title = (
+                f"Method {i+1}:"
+                + "$\\max_{x \\in (0,1)} |"
+                + Zmn
+                + "-"
+                + Zmn_p
+                + "| / |\\bar{Z}_{lm}|$"
+            )
+        im = ax[i].scatter(
+            basis.modes[:, 0],
+            basis.modes[:, 1],
+            c=c,
+            norm=norm,
+            cmap=cmap,
+        )
+
+        ax[i].grid(True)
+        ax[i].set_xticks(np.arange(0, res + 1, 5))
+        ax[i].set_yticks(np.arange(0, res + 1, 5))
+        ax[i].set_xlabel("$n$", fontsize=12)
+        ax[i].set_ylabel("$m$", fontsize=12)
+        ax[i].set_title(title, fontsize=14)
+    # Create a separate axis for the colorbar
+    cbar_ax = fig.add_axes([0.92, 0.15, 0.02, 0.7])  # [left, bottom, width, height]
+    cbar = fig.colorbar(im, cax=cbar_ax, ticks=bounds)
+    cbar.ax.set_yticklabels(["{:.0e}".format(foo) for foo in bounds])
