@@ -282,7 +282,7 @@ def plot_comparison(exact, methods, basis, dx=0, type="absolute"):
     )
 
     # define the bins and normalize
-    bounds = np.logspace(-16, 1, 17)
+    bounds = np.logspace(-16, 0, 17)
     norm = matplotlib.colors.BoundaryNorm(bounds, cmap.N)
 
     fig, ax = plt.subplots(1, N, squeeze=True, figsize=(N * 5 + 3, 5))

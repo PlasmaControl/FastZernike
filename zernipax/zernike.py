@@ -5,7 +5,7 @@ from math import factorial
 
 import mpmath
 
-from zernipax.backend import cond, custom_jvp, fori_loop, gammaln, jit, jnp, np, switch
+from zernipax.backend import cond, custom_jvp, fori_loop, jit, jnp, np, switch
 
 
 def jacobi_poly_single(x, n, alpha, beta=0, P_n1=0, P_n2=0):
@@ -76,8 +76,18 @@ def zernike_radial_unique(r, l, m, dr=0):
             0, dr + 1, find_inter_jacobi, (N, alpha, P_n1, P_n2, P_n)
         )
 
-        coef = jnp.exp(
-            gammaln(alpha + N + 1 + dxs) - dxs * jnp.log(2) - gammaln(alpha + N + 1)
+        coef = jnp.array(
+            [
+                1,
+                (alpha + N + 1) / 2,
+                (alpha + N + 2) * (alpha + N + 1) / 4,
+                (alpha + N + 3) * (alpha + N + 2) * (alpha + N + 1) / 8,
+                (alpha + N + 4)
+                * (alpha + N + 3)
+                * (alpha + N + 2)
+                * (alpha + N + 1)
+                / 16,
+            ]
         )
         # TODO: A version without if statements are possible?
         if dr == 0:
@@ -280,7 +290,7 @@ def zernike_radial(r, l, m, dr=0):
 
         coef = jnp.array(
             [
-                0,
+                1,
                 (alpha + N + 1) / 2,
                 (alpha + N + 2) * (alpha + N + 1) / 4,
                 (alpha + N + 3) * (alpha + N + 2) * (alpha + N + 1) / 8,
@@ -587,8 +597,18 @@ def zernike_radial_jvp(r, l, m, dr=0):
             0, dr + 1, find_inter_jacobi, (N, alpha, P_n1, P_n2, P_n)
         )
 
-        coef = jnp.exp(
-            gammaln(alpha + N + 1 + dxs) - dxs * jnp.log(2) - gammaln(alpha + N + 1)
+        coef = jnp.array(
+            [
+                1,
+                (alpha + N + 1) / 2,
+                (alpha + N + 2) * (alpha + N + 1) / 4,
+                (alpha + N + 3) * (alpha + N + 2) * (alpha + N + 1) / 8,
+                (alpha + N + 4)
+                * (alpha + N + 3)
+                * (alpha + N + 2)
+                * (alpha + N + 1)
+                / 16,
+            ]
         )
         # TODO: A version without if statements are possible?
         if dr == 0:
@@ -750,8 +770,18 @@ def zernike_radial_jvp_gpu(r, l, m, dr=0, repeat=1):
             0, dr + 1, find_inter_jacobi, (N, alpha, P_n1, P_n2, P_n)
         )
 
-        coef = jnp.exp(
-            gammaln(alpha + N + 1 + dxs) - dxs * jnp.log(2) - gammaln(alpha + N + 1)
+        coef = jnp.array(
+            [
+                1,
+                (alpha + N + 1) / 2,
+                (alpha + N + 2) * (alpha + N + 1) / 4,
+                (alpha + N + 3) * (alpha + N + 2) * (alpha + N + 1) / 8,
+                (alpha + N + 4)
+                * (alpha + N + 3)
+                * (alpha + N + 2)
+                * (alpha + N + 1)
+                / 16,
+            ]
         )
         # TODO: A version without if statements are possible?
         if dr == 0:
@@ -1026,11 +1056,19 @@ def _zernike_radial_vectorized_d1(r, l, m, dr):
             find_intermadiate_jacobi,
             (r_jacobi, N, alpha, P_n1, P_n2, P_n),
         )
-        # Calculate coefficients for derivatives. coef[0] will never be used. Jax
-        # doesn't have Gamma function directly, that's why we calculate Logarithm of
-        # Gamma function and then exponentiate it.
-        coef = jnp.exp(
-            gammaln(alpha + N + 1 + dxs) - dxs * jnp.log(2) - gammaln(alpha + N + 1)
+        # Calculate coefficients for derivatives.
+        coef = jnp.array(
+            [
+                1,
+                (alpha + N + 1) / 2,
+                (alpha + N + 2) * (alpha + N + 1) / 4,
+                (alpha + N + 3) * (alpha + N + 2) * (alpha + N + 1) / 8,
+                (alpha + N + 4)
+                * (alpha + N + 3)
+                * (alpha + N + 2)
+                * (alpha + N + 1)
+                / 16,
+            ]
         )
         # 1th Derivative of Zernike Radial
         result = (-1) ** N * (
@@ -1118,11 +1156,19 @@ def _zernike_radial_vectorized_d2(r, l, m, dr):
             (r_jacobi, N, alpha, P_n1, P_n2, P_n),
         )
 
-        # Calculate coefficients for derivatives. coef[0] will never be used. Jax
-        # doesn't have Gamma function directly, that's why we calculate Logarithm of
-        # Gamma function and then exponentiate it.
-        coef = jnp.exp(
-            gammaln(alpha + N + 1 + dxs) - dxs * jnp.log(2) - gammaln(alpha + N + 1)
+        # Calculate coefficients for derivatives.
+        coef = jnp.array(
+            [
+                1,
+                (alpha + N + 1) / 2,
+                (alpha + N + 2) * (alpha + N + 1) / 4,
+                (alpha + N + 3) * (alpha + N + 2) * (alpha + N + 1) / 8,
+                (alpha + N + 4)
+                * (alpha + N + 3)
+                * (alpha + N + 2)
+                * (alpha + N + 1)
+                / 16,
+            ]
         )
 
         result = (-1) ** N * (
@@ -1211,11 +1257,19 @@ def _zernike_radial_vectorized_d3(r, l, m, dr):
             (r_jacobi, N, alpha, P_n1, P_n2, P_n),
         )
 
-        # Calculate coefficients for derivatives. coef[0] will never be used. Jax
-        # doesn't have Gamma function directly, that's why we calculate Logarithm of
-        # Gamma function and then exponentiate it.
-        coef = jnp.exp(
-            gammaln(alpha + N + 1 + dxs) - dxs * jnp.log(2) - gammaln(alpha + N + 1)
+        # Calculate coefficients for derivatives.
+        coef = jnp.array(
+            [
+                1,
+                (alpha + N + 1) / 2,
+                (alpha + N + 2) * (alpha + N + 1) / 4,
+                (alpha + N + 3) * (alpha + N + 2) * (alpha + N + 1) / 8,
+                (alpha + N + 4)
+                * (alpha + N + 3)
+                * (alpha + N + 2)
+                * (alpha + N + 1)
+                / 16,
+            ]
         )
 
         # 3rd Derivative of Zernike Radial
@@ -1306,11 +1360,19 @@ def _zernike_radial_vectorized_d4(r, l, m, dr):
             (r_jacobi, N, alpha, P_n1, P_n2, P_n),
         )
 
-        # Calculate coefficients for derivatives. coef[0] will never be used. Jax
-        # doesn't have Gamma function directly, that's why we calculate Logarithm of
-        # Gamma function and then exponentiate it.
-        coef = jnp.exp(
-            gammaln(alpha + N + 1 + dxs) - dxs * jnp.log(2) - gammaln(alpha + N + 1)
+        # Calculate coefficients for derivatives.
+        coef = jnp.array(
+            [
+                1,
+                (alpha + N + 1) / 2,
+                (alpha + N + 2) * (alpha + N + 1) / 4,
+                (alpha + N + 3) * (alpha + N + 2) * (alpha + N + 1) / 8,
+                (alpha + N + 4)
+                * (alpha + N + 3)
+                * (alpha + N + 2)
+                * (alpha + N + 1)
+                / 16,
+            ]
         )
 
         # 4th Derivative of Zernike Radial
@@ -1478,11 +1540,19 @@ def _zernike_radial_vectorized_d1_gpu(r, l, m, dr):
             find_intermadiate_jacobi,
             (r_jacobi, N, alpha, P_n1, P_n2, P_n),
         )
-        # Calculate coefficients for derivatives. coef[0] will never be used. Jax
-        # doesn't have Gamma function directly, that's why we calculate Logarithm of
-        # Gamma function and then exponentiate it.
-        coef = jnp.exp(
-            gammaln(alpha + N + 1 + dxs) - dxs * jnp.log(2) - gammaln(alpha + N + 1)
+        # Calculate coefficients for derivatives.
+        coef = jnp.array(
+            [
+                1,
+                (alpha + N + 1) / 2,
+                (alpha + N + 2) * (alpha + N + 1) / 4,
+                (alpha + N + 3) * (alpha + N + 2) * (alpha + N + 1) / 8,
+                (alpha + N + 4)
+                * (alpha + N + 3)
+                * (alpha + N + 2)
+                * (alpha + N + 1)
+                / 16,
+            ]
         )
         # 1th Derivative of Zernike Radial
         result = (-1) ** N * (
@@ -1569,11 +1639,19 @@ def _zernike_radial_vectorized_d2_gpu(r, l, m, dr):
             (r_jacobi, N, alpha, P_n1, P_n2, P_n),
         )
 
-        # Calculate coefficients for derivatives. coef[0] will never be used. Jax
-        # doesn't have Gamma function directly, that's why we calculate Logarithm of
-        # Gamma function and then exponentiate it.
-        coef = jnp.exp(
-            gammaln(alpha + N + 1 + dxs) - dxs * jnp.log(2) - gammaln(alpha + N + 1)
+        # Calculate coefficients for derivatives.
+        coef = jnp.array(
+            [
+                1,
+                (alpha + N + 1) / 2,
+                (alpha + N + 2) * (alpha + N + 1) / 4,
+                (alpha + N + 3) * (alpha + N + 2) * (alpha + N + 1) / 8,
+                (alpha + N + 4)
+                * (alpha + N + 3)
+                * (alpha + N + 2)
+                * (alpha + N + 1)
+                / 16,
+            ]
         )
 
         result = (-1) ** N * (
@@ -1661,11 +1739,19 @@ def _zernike_radial_vectorized_d3_gpu(r, l, m, dr):
             (r_jacobi, N, alpha, P_n1, P_n2, P_n),
         )
 
-        # Calculate coefficients for derivatives. coef[0] will never be used. Jax
-        # doesn't have Gamma function directly, that's why we calculate Logarithm of
-        # Gamma function and then exponentiate it.
-        coef = jnp.exp(
-            gammaln(alpha + N + 1 + dxs) - dxs * jnp.log(2) - gammaln(alpha + N + 1)
+        # Calculate coefficients for derivatives.
+        coef = jnp.array(
+            [
+                1,
+                (alpha + N + 1) / 2,
+                (alpha + N + 2) * (alpha + N + 1) / 4,
+                (alpha + N + 3) * (alpha + N + 2) * (alpha + N + 1) / 8,
+                (alpha + N + 4)
+                * (alpha + N + 3)
+                * (alpha + N + 2)
+                * (alpha + N + 1)
+                / 16,
+            ]
         )
 
         # 3rd Derivative of Zernike Radial
@@ -1755,11 +1841,19 @@ def _zernike_radial_vectorized_d4_gpu(r, l, m, dr):
             (r_jacobi, N, alpha, P_n1, P_n2, P_n),
         )
 
-        # Calculate coefficients for derivatives. coef[0] will never be used. Jax
-        # doesn't have Gamma function directly, that's why we calculate Logarithm of
-        # Gamma function and then exponentiate it.
-        coef = jnp.exp(
-            gammaln(alpha + N + 1 + dxs) - dxs * jnp.log(2) - gammaln(alpha + N + 1)
+        # Calculate coefficients for derivatives.
+        coef = jnp.array(
+            [
+                1,
+                (alpha + N + 1) / 2,
+                (alpha + N + 2) * (alpha + N + 1) / 4,
+                (alpha + N + 3) * (alpha + N + 2) * (alpha + N + 1) / 8,
+                (alpha + N + 4)
+                * (alpha + N + 3)
+                * (alpha + N + 2)
+                * (alpha + N + 1)
+                / 16,
+            ]
         )
 
         # 4th Derivative of Zernike Radial
@@ -1912,20 +2006,17 @@ def _jacobi(n, alpha, beta, x, dx=0):
     n, alpha, beta, x = map(jnp.asarray, (n, alpha, beta, x))
 
     # coefficient for derivative
-    def poch(x, dx):
-        def body(k, val):
-            return val * (x + k)
-
-        return fori_loop(0, dx, body, 1)
-
-    # c = ( # noqa: E800
-    #     gammaln(alpha + beta + n + 1 + dx) # noqa: E800
-    #     - dx * jnp.log(2) # noqa: E800
-    #     - gammaln(alpha + beta + n + 1) # noqa: E800
-    # ) # noqa: E800
-    # c = jnp.exp(c) # noqa: E800
-    c = poch(alpha + n + 1, dx) / (2**dx)
-    # taking derivative is same as coeff*jacobi but for shifted n,a,b
+    coeffs = jnp.array(
+        [
+            1,
+            (alpha + n + 1) / 2,
+            (alpha + n + 2) * (alpha + n + 1) / 4,
+            (alpha + n + 3) * (alpha + n + 2) * (alpha + n + 1) / 8,
+            (alpha + n + 4) * (alpha + n + 3) * (alpha + n + 2) * (alpha + n + 1) / 16,
+        ]
+    )
+    c = coeffs[dx]
+    # taking derivative is same as c*jacobi but for shifted n,a,b
     n -= dx
     alpha += dx
     beta += dx

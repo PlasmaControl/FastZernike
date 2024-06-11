@@ -1,7 +1,19 @@
 """Tests for zernipax.zernike module."""
 
 import numpy as np
-from zernipax.zernike import fourier, jacobi_poly_single, zernike_radial
+
+from zernipax.backend import jax
+from zernipax.zernike import (
+    fourier,
+    jacobi_poly_single,
+    zernike_radial,
+    zernike_radial_jvp,
+    zernike_radial_old_desc,
+    zernike_radial_poly,
+    zernike_radial_switch,
+    zernike_radial_switch_gpu,
+    zernike_radial_unique,
+)
 
 
 def test_zernike_radial():  # noqa: C901
@@ -60,9 +72,33 @@ def test_zernike_radial():  # noqa: C901
         dr: np.array([Z3_1(r, dr), Z4_2(r, dr), Z6_2(r, dr), Z4_2(r, dr)]).T
         for dr in range(max_dr + 1)
     }
-    radial = {dr: zernike_radial(r, l, m, dr) for dr in range(max_dr + 1)}
-    for dr in range(max_dr + 1):
-        np.testing.assert_allclose(radial[dr], desired[dr], err_msg=dr)
+    functions = [
+        zernike_radial,
+        zernike_radial_switch,
+        zernike_radial_switch_gpu,
+        zernike_radial_jvp,
+    ]
+    for fun in functions:
+        radial = {dr: fun(r, l, m, dr) for dr in range(max_dr + 1)}
+        for dr in range(max_dr + 1):
+            np.testing.assert_allclose(
+                radial[dr],
+                desired[dr],
+                err_msg="Failed in " + str(dr) + "th derivative in " + fun.__name__,
+            )
+
+    functions = [
+        zernike_radial_old_desc,
+        zernike_radial_poly,
+    ]
+    for fun in functions:
+        radial = {dr: fun(r[:, np.newaxis], l, m, dr) for dr in range(max_dr + 1)}
+        for dr in range(max_dr + 1):
+            np.testing.assert_allclose(
+                radial[dr],
+                desired[dr],
+                err_msg="Failed in " + str(dr) + "th derivative in " + fun.__name__,
+            )
 
 
 def test_jacobi_poly_single():
@@ -113,3 +149,34 @@ def test_fourier():
 
     np.testing.assert_allclose(values, correct_vals, atol=1e-8)
     np.testing.assert_allclose(derivs, correct_ders, atol=1e-8)
+
+
+def test_ad():
+    """Test automatic differentiation."""
+    r = np.linspace(0, 1, 11)
+    l = np.array([3, 4, 6])
+    m = np.array([1, 2, 2])
+
+    # Functions that can be fully differentiated in forward and reverse mode
+    full = [
+        zernike_radial_switch,
+        zernike_radial_switch_gpu,
+        zernike_radial_jvp,
+    ]
+    for fun in full:
+        _ = fun(r, l, m, 0)
+        _ = jax.jacfwd(fun)(r, l, m, 0)
+        _ = jax.jacrev(fun)(r, l, m, 0)
+
+    _ = zernike_radial_old_desc(r[:, np.newaxis], l, m, 0)
+    _ = jax.jacfwd(zernike_radial_old_desc)(r[:, np.newaxis], l, m, 0)
+    _ = jax.jacrev(zernike_radial_old_desc)(r[:, np.newaxis], l, m, 0)
+
+    # Functions that can be differentiated only in forward mode
+    part = [
+        zernike_radial,
+        zernike_radial_unique,
+    ]
+    for fun in part:
+        _ = fun(r, l, m, 0)
+        _ = jax.jacfwd(fun)(r, l, m, 0)
