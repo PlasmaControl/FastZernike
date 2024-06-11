@@ -1,5 +1,5 @@
 # Zernipax
-A python library to calculate Zernike Polynomials fast and accurately
+A python library to calculate Zernike Polynomials fast and accurately using JAX.
 
 
 To create conda environment:
