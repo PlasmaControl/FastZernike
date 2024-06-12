@@ -265,9 +265,13 @@ def plot_modes(modes, rho=100, theta=100, **kwargs):
         return fig, ax
 
 
-def plot_comparison(exact, methods, basis, dx=0, type="absolute"):
+def plot_comparison(
+    exact, methods, basis, dx=0, type="absolute", names=None, print_error=False
+):
     """Plot comparison of exact and approximate methods."""
     assert type in ["absolute", "relative"], "type must be 'absolute' or 'relative'"
+    if names is not None:
+        assert len(names) == len(methods), "title must have the same length as methods"
 
     N = len(methods)
     res = basis.L
@@ -285,8 +289,9 @@ def plot_comparison(exact, methods, basis, dx=0, type="absolute"):
     bounds = np.logspace(-16, 0, 17)
     norm = matplotlib.colors.BoundaryNorm(bounds, cmap.N)
 
-    fig, ax = plt.subplots(1, N, squeeze=True, figsize=(N * 5 + 3, 5))
+    fig, ax = plt.subplots(1, N, squeeze=True, figsize=(N * 5, 4))
     for i in range(N):
+        description = names[i] if names is not None else f"Method {i+1}:"
         if dx == 0:
             Zmn = "Z_{nm}(x)"
             Zmn_p = "\\tilde{Z}_{nm}(x)"
@@ -294,21 +299,13 @@ def plot_comparison(exact, methods, basis, dx=0, type="absolute"):
             derv = "^" + str(dx) if dx > 1 else ""
             Zmn = "\\frac{d" + derv + "Z_{nm}(x)}{d x" + derv + "}"
             Zmn_p = "\\frac{d" + derv + "\\tilde{Z}_{nm}(x)}{d x" + derv + "}"
+        title = description + "$\\max_{x \\in (0,1)} |" + Zmn + "-" + Zmn_p
         if type == "absolute":
             c = np.max(abs(methods[i] - exact), axis=0) / np.mean(abs(exact))
-            title = (
-                f"Method {i+1}:" + "$\\max_{x \\in (0,1)} |" + Zmn + "-" + Zmn_p + "|$"
-            )
+            title = title + "|$"
         else:
             c = np.max(abs(methods[i] - exact), axis=0)
-            title = (
-                f"Method {i+1}:"
-                + "$\\max_{x \\in (0,1)} |"
-                + Zmn
-                + "-"
-                + Zmn_p
-                + "| / |\\bar{Z}_{lm}|$"
-            )
+            title = title + "| / |\\bar{Z}_{lm}|$"
         im = ax[i].scatter(
             basis.modes[:, 0],
             basis.modes[:, 1],
@@ -323,6 +320,19 @@ def plot_comparison(exact, methods, basis, dx=0, type="absolute"):
         ax[i].set_xlabel("$n$", fontsize=12)
         ax[i].set_ylabel("$m$", fontsize=12)
         ax[i].set_title(title, fontsize=14)
+        if print_error:
+            ax[i].text(
+                0,
+                45,
+                f"Max error: {np.max(c):.2e}",
+                fontsize=13,
+            )
+            ax[i].text(
+                0,
+                40,
+                f"Mean error: {np.mean(c):.2e}",
+                fontsize=13,
+            )
     # Create a separate axis for the colorbar
     cbar_ax = fig.add_axes([0.92, 0.15, 0.02, 0.7])  # [left, bottom, width, height]
     cbar = fig.colorbar(im, cax=cbar_ax, ticks=bounds)
