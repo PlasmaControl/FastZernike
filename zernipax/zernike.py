@@ -765,8 +765,8 @@ def zernike_radial_coeffs(l, m, exact=True):
     Integer representation is exact up to l~54, so leaving `exact` arg as False
     can speed up evaluation with no loss in accuracy
     """
-    l = np.atleast_1d(l).astype(int)
-    m = np.atleast_1d(np.abs(m)).astype(int)
+    l = np.atleast_1d(l).astype(np.int64)
+    m = np.atleast_1d(np.abs(m)).astype(np.int64)
     lm = np.vstack([l, m]).T
     # for modest to large arrays, faster to find unique values and
     # only evaluate those
@@ -777,8 +777,9 @@ def zernike_radial_coeffs(l, m, exact=True):
     coeffs = np.zeros((npoly, lmax + 1), dtype=object)
     lm_even = ((lms[:, 0] - lms[:, 1]) % 2 == 0)[:, np.newaxis]
     for ii in range(npoly):
-        ll = lms[ii, 0]
-        mm = lms[ii, 1]
+        # cast to Python int to prevent Numpy overflow error
+        ll = int(lms[ii, 0])
+        mm = int(lms[ii, 1])
         for s in range(mm, ll + 1, 2):
             # Zernike polynomials can also be written in the form of [1] which
             # states that the coefficients are given by the binomial coefficients
