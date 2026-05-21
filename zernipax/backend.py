@@ -80,8 +80,8 @@ def custom_jvp_with_jit(func):
 
         This is just the same function called with dx+1.
         """
-        (r, l, m) = x
-        (rdot, ldot, mdot) = xdot
+        r, l, m = x
+        rdot, ldot, mdot = xdot
         f = dummy(r, l, m, nondiff_dr)
         df = dummy(r, l, m, nondiff_dr + 1)
         return f, (df.T * rdot).T
